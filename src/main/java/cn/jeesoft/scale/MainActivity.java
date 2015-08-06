@@ -19,12 +19,12 @@ public class MainActivity extends Activity {
 
         RelativeLayout layout = new RelativeLayout(this);
 
-        // 刻度尺
-        ScaleView scaleView = new ScaleView(this);
+        // 刻度尺-横向
+        HorizontalScaleView scaleView = new HorizontalScaleView(this);
         scaleView.setScaleRange(100, 300);
         scaleView.setScaleDefault(130);
         scaleView.setId(100);
-        layout.addView(scaleView, 150, 500);
+        layout.addView(scaleView, 500, 150);
         ((RelativeLayout.LayoutParams)scaleView.getLayoutParams()).addRule(RelativeLayout.CENTER_IN_PARENT);
 
         // 指示器
@@ -32,8 +32,8 @@ public class MainActivity extends Activity {
         scaleView.setId(101);
         indexView.setBackgroundColor(Color.RED);
         layout.addView(indexView, 10, 10);
-        ((RelativeLayout.LayoutParams)indexView.getLayoutParams()).addRule(RelativeLayout.CENTER_VERTICAL);
-        ((RelativeLayout.LayoutParams)indexView.getLayoutParams()).addRule(RelativeLayout.LEFT_OF, scaleView.getId());
+        ((RelativeLayout.LayoutParams)indexView.getLayoutParams()).addRule(RelativeLayout.CENTER_HORIZONTAL);
+        ((RelativeLayout.LayoutParams)indexView.getLayoutParams()).addRule(RelativeLayout.ABOVE, scaleView.getId());
 
         // 指示器
         final TextView textView = new TextView(this);
@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
         ((RelativeLayout.LayoutParams)textView.getLayoutParams()).addRule(RelativeLayout.LEFT_OF, scaleView.getId());
 
         // 设置监听器
-        scaleView.setOnScaleChangeListener(new ScaleView.OnScaleChangeListener() {
+        scaleView.setOnScaleChangeListener(new OnScaleChangeListener() {
             @Override
             public void onValueChange(int value) {
                 textView.setText(String.valueOf(value));
@@ -56,4 +56,6 @@ public class MainActivity extends Activity {
         setContentView(layout);
 
     }
+
+
 }

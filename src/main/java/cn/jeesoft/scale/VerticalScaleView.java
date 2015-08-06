@@ -13,6 +13,7 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Scroller;
 
@@ -20,17 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 刻度尺
+ * 刻度尺-竖向
  * @version 0.1 king 2015-08
  */
-public class ScaleView extends ScrollView {
-
-    /**
-     * 选中刻度值改变监听器
-     */
-    public static interface OnScaleChangeListener {
-        public void onValueChange(int value);
-    }
+public class VerticalScaleView extends ScrollView {
 
     public static final int MIN_WIDTH = 100; // 最小宽度
     public static final int _SCALE_WIDTH = 10; // 单个刻度的宽度or高度
@@ -43,20 +37,20 @@ public class ScaleView extends ScrollView {
     private Integer mScaleEnd; // 结束刻度值
     private Integer mScaleDefault; // 默认刻度值
 
-    public ScaleView(Context context) {
+    public VerticalScaleView(Context context) {
         super(context);
         init(context);
     }
-    public ScaleView(Context context, AttributeSet attrs) {
+    public VerticalScaleView(Context context, AttributeSet attrs) {
         super(context, attrs);
         init(context);
     }
-    public ScaleView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public VerticalScaleView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init(context);
     }
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public ScaleView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+    public VerticalScaleView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
         init(context);
     }
