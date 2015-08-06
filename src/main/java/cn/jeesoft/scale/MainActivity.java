@@ -21,6 +21,8 @@ public class MainActivity extends Activity {
 
         // 刻度尺
         ScaleView scaleView = new ScaleView(this);
+        scaleView.setScaleRange(100, 300);
+        scaleView.setScaleDefault(130);
         scaleView.setId(100);
         layout.addView(scaleView, 150, 500);
         ((RelativeLayout.LayoutParams)scaleView.getLayoutParams()).addRule(RelativeLayout.CENTER_IN_PARENT);
@@ -29,7 +31,7 @@ public class MainActivity extends Activity {
         View indexView = new View(this);
         scaleView.setId(101);
         indexView.setBackgroundColor(Color.RED);
-        layout.addView(indexView, 30, 10);
+        layout.addView(indexView, 10, 10);
         ((RelativeLayout.LayoutParams)indexView.getLayoutParams()).addRule(RelativeLayout.CENTER_VERTICAL);
         ((RelativeLayout.LayoutParams)indexView.getLayoutParams()).addRule(RelativeLayout.LEFT_OF, scaleView.getId());
 
