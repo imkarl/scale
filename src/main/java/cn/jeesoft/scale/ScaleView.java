@@ -105,23 +105,32 @@ public class ScaleView extends ScrollView {
     /**
      * 设置选中刻度索引
      * @param position
+     * @param isScroll 是否校准滑动位置
      */
-    public void setScaleSelectPosition(int position) {
+    private void setScaleSelectPosition(int position, boolean isScroll) {
         ScaleItem scaleItem = mScaleItems.get(position);
         final int selectPoint = scaleItem.point - getHeight() / 2;
-        post(new Runnable() {
-            @Override
-            public void run() {
-                scrollTo(0, selectPoint);
-            }
-        });
+        if (isScroll) {
+            post(new Runnable() {
+                @Override
+                public void run() {
+                    scrollTo(0, selectPoint);
+                }
+            });
+        }
 
         // 通知监听者
         if (mOnScaleChangeListener != null) {
             mOnScaleChangeListener.onValueChange(scaleItem.value);
         }
     }
-
+    /**
+     * 设置选中刻度索引
+     * @param position
+     */
+    public void setScaleSelectPosition(int position) {
+        setScaleSelectPosition(position, true);
+    }
     /**
      * 设置选中刻度值
      * @param value
@@ -138,13 +147,17 @@ public class ScaleView extends ScrollView {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
+        int y = getScrollY();
+        int selectItem = (int) (y / _SCALE_WIDTH);
+
         switch (ev.getAction()) {
+            case MotionEvent.ACTION_MOVE:
+            case MotionEvent.ACTION_HOVER_MOVE:
+                // 设置选中项
+                setScaleSelectPosition(selectItem, false);
+                break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                // 滑动结束，设置选中项
-                int y = getScrollY();
-                int selectItem = (int) (y / _SCALE_WIDTH);
-
                 // 校准选中位置
                 setScaleSelectPosition(selectItem);
                 return false;
