@@ -7,11 +7,11 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.HorizontalScrollView;
-import android.widget.ScrollView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,16 +23,21 @@ import java.util.List;
 public class HorizontalScaleView extends HorizontalScrollView {
 
     public static final int MIN_WIDTH = 100; // 最小宽度
-    public static final int _SCALE_WIDTH = 10; // 单个刻度的宽度or高度
     public static final int _SCALE_SPACE = 1; // 刻度值间隔
+
+    public static final int _DIRECTION_TOP = 0; // 刻度绘制方向
+    public static final int _DIRECTION_BOTTOM = 1; // 刻度绘制方向
 
 
     private DrawView mDrawView;
-    private OnScaleChangeListener mOnScaleChangeListener;
+    private OnScaleValueListener mOnScaleChangeListener;
+    private OnScaleDrawListener mOnScaleDrawListener;
     private List<ScaleItem> mScaleItems = new ArrayList<ScaleItem>();
     private Integer mScaleStart; // 起始刻度值
     private Integer mScaleEnd; // 结束刻度值
+    private int mScaleWidth = 10; // 单个刻度的宽度or高度
     private Integer mScaleDefault; // 默认刻度值
+    private int mDirection =  _DIRECTION_BOTTOM;// 刻度绘制方向
 
     public HorizontalScaleView(Context context) {
         super(context);
@@ -61,11 +66,18 @@ public class HorizontalScaleView extends HorizontalScrollView {
     }
 
     /**
-     * 设置选中刻度值改变监听
+     * 设置选中刻度值监听
      * @param listener 监听器
      */
-    public void setOnScaleChangeListener(OnScaleChangeListener listener) {
+    public void setOnScaleChangeListener(OnScaleValueListener listener) {
         this.mOnScaleChangeListener = listener;
+    }
+    /**
+     * 设置刻度绘制监听
+     * @param listener 监听器
+     */
+    public void setOnScaleDrawListener(OnScaleDrawListener listener) {
+        this.mOnScaleDrawListener = listener;
     }
 
     /**
@@ -91,6 +103,36 @@ public class HorizontalScaleView extends HorizontalScrollView {
         } else if (mScaleDefault > mScaleEnd) {
             throw new IllegalArgumentException("def不能大于end的值");
         }
+    }
+
+    /**
+     * 获取刻度绘制方向
+     * @return
+     */
+    public int getDirection() {
+        return mDirection;
+    }
+    /**
+     * 设置刻度绘制方向
+     * @param direction
+     */
+    public void setDirection(int direction) {
+        this.mDirection = direction;
+    }
+
+    /**
+     * 获取刻度间隔宽度
+     * @return
+     */
+    public int getScaleWidth() {
+        return mScaleWidth;
+    }
+    /**
+     * 设置刻度间隔宽度
+     * @param scaleWidth
+     */
+    public void setScaleWidth(int scaleWidth) {
+        this.mScaleWidth = scaleWidth;
     }
 
     /**
@@ -140,7 +182,7 @@ public class HorizontalScaleView extends HorizontalScrollView {
     public boolean onTouchEvent(MotionEvent ev) {
         int x = getScrollX();
         // 计算当前选中项，四舍五入
-        int selectItem = Math.round((float)x / (float)_SCALE_WIDTH);
+        int selectItem = Math.round((float)x / (float)mScaleWidth);
 
         switch (ev.getAction()) {
             case MotionEvent.ACTION_MOVE:
@@ -179,13 +221,13 @@ public class HorizontalScaleView extends HorizontalScrollView {
         int itemCount = (mScaleEnd - mScaleStart) / _SCALE_SPACE;
         for (int i = 0; i <= itemCount; i++) {
             ScaleItem item = new ScaleItem();
-            item.point = pointStart + (i * _SCALE_WIDTH);
+            item.point = pointStart + (i * mScaleWidth);
             item.value = mScaleStart + (i * _SCALE_SPACE);
             mScaleItems.add(item);
         }
 
         // 计算刻度尺总高度
-        int drawWidth = ((mScaleEnd - mScaleStart) / _SCALE_SPACE * _SCALE_WIDTH) + width;
+        int drawWidth = ((mScaleEnd - mScaleStart) / _SCALE_SPACE * mScaleWidth) + width;
         mDrawView.getLayoutParams().width = drawWidth;
         mDrawView.setMinimumWidth(drawWidth);
 
@@ -212,40 +254,64 @@ public class HorizontalScaleView extends HorizontalScrollView {
 
             // 将所有刻度绘制出来
             for (ScaleItem item : mScaleItems) {
-                if (item.value % 10 == 0) {
-                    // 大刻度
-                    paint.setTypeface(Typeface.DEFAULT_BOLD);
-                    canvas.drawLine(item.point, 0, item.point, getHeight() * 0.5F, paint);
-                    canvas.drawText(getDecimal(item.value * 0.01, 2), item.point-(_SCALE_WIDTH*2), (getHeight() * 0.75F), paint);
-                } else if (item.value % 5 == 0) {
-                    // 中间刻度
-                    paint.setTypeface(Typeface.DEFAULT_BOLD);
-                    canvas.drawLine(item.point, 0, item.point, getHeight() / 3, paint);
-                } else {
-                    // 普通小刻度
-                    paint.setTypeface(Typeface.DEFAULT);
-                    canvas.drawLine(item.point, 0, item.point, getHeight()/4, paint);
+                // 是否已绘制
+                boolean isDraw = false;
+                if (mOnScaleDrawListener != null) {
+                    // 自定义绘制方法
+                    isDraw = mOnScaleDrawListener.onDrawScale(canvas, item.value, item.point, mDirection);
+                }
+
+                if (!isDraw) {
+                    // 默认实现的绘制方法
+                    if (mDirection == _DIRECTION_TOP) {
+                        if (item.value % 10 == 0) {
+                            // 大刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(item.point, 0, item.point, getHeight() * 0.5F, paint);
+                            canvas.drawText(getValueShow(item.value), item.point - (mScaleWidth * 2), (getHeight() * 0.75F), paint);
+                        } else if (item.value % 5 == 0) {
+                            // 中间刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(item.point, 0, item.point, getHeight() / 3, paint);
+                        } else {
+                            // 普通小刻度
+                            paint.setTypeface(Typeface.DEFAULT);
+                            canvas.drawLine(item.point, 0, item.point, getHeight() / 4, paint);
+                        }
+                    } else {
+                        if (item.value % 10 == 0) {
+                            // 大刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(item.point, getHeight() * 0.5F, item.point, getHeight(), paint);
+                            canvas.drawText(getValueShow(item.value), item.point - (mScaleWidth * 2), (getHeight() * 0.35F), paint);
+                        } else if (item.value % 5 == 0) {
+                            // 中间刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(item.point, getHeight() * 2 / 3, item.point, getHeight(), paint);
+                        } else {
+                            // 普通小刻度
+                            paint.setTypeface(Typeface.DEFAULT);
+                            canvas.drawLine(item.point, getHeight() * 3 / 4, item.point, getHeight(), paint);
+                        }
+                    }
                 }
             }
         }
 
         /**
-         * 指定小数点后的个数
-         * @param decimal 要处理显示的数值
-         * @param length 小数点后的个数
-         * @return 处理后的结果
+         * 获取要显示的刻度值
+         * @param value 刻度值
+         * @return 要显示的内容
          */
-        private String getDecimal(double decimal, int length) {
-            String strLen = ".";
-            if (length <= 0) {
-                strLen = "";
-            } else {
-                for (int i=0; i<length; i++) {
-                    strLen += "0";
-                }
+        private String getValueShow(int value) {
+            String text = null;
+            if (mOnScaleChangeListener != null) {
+                text = mOnScaleChangeListener.getValueText(value);
             }
-            java.text.DecimalFormat df = new java.text.DecimalFormat("0"+strLen);
-            return df.format(decimal);
+            if (TextUtils.isEmpty(text)) {
+                text = String.valueOf(value);
+            }
+            return text;
         }
     }
 

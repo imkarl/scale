@@ -7,15 +7,11 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Build;
-import android.text.Spannable;
+import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
-import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Scroller;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,15 +23,20 @@ import java.util.List;
 public class VerticalScaleView extends ScrollView {
 
     public static final int MIN_WIDTH = 100; // 最小宽度
-    public static final int _SCALE_WIDTH = 10; // 单个刻度的宽度or高度
     public static final int _SCALE_SPACE = 1; // 刻度值间隔
 
+    public static final int _DIRECTION_LEFT = 0; // 刻度绘制方向
+    public static final int _DIRECTION_RIGHT = 1; // 刻度绘制方向
+
     private DrawView mDrawView;
-    private OnScaleChangeListener mOnScaleChangeListener;
+    private OnScaleValueListener mOnScaleChangeListener;
+    private OnScaleDrawListener mOnScaleDrawListener;
     private List<ScaleItem> mScaleItems = new ArrayList<ScaleItem>();
     private Integer mScaleStart; // 起始刻度值
     private Integer mScaleEnd; // 结束刻度值
+    private int mScaleWidth = 10; // 单个刻度的宽度or高度
     private Integer mScaleDefault; // 默认刻度值
+    private int mDirection =  _DIRECTION_LEFT;// 刻度绘制方向
 
     public VerticalScaleView(Context context) {
         super(context);
@@ -64,11 +65,18 @@ public class VerticalScaleView extends ScrollView {
     }
 
     /**
-     * 设置选中刻度值改变监听
+     * 设置选中刻度值监听
      * @param listener 监听器
      */
-    public void setOnScaleChangeListener(OnScaleChangeListener listener) {
+    public void setOnScaleChangeListener(OnScaleValueListener listener) {
         this.mOnScaleChangeListener = listener;
+    }
+    /**
+     * 设置刻度绘制监听
+     * @param listener 监听器
+     */
+    public void setOnScaleDrawListener(OnScaleDrawListener listener) {
+        this.mOnScaleDrawListener = listener;
     }
 
     /**
@@ -94,6 +102,36 @@ public class VerticalScaleView extends ScrollView {
         } else if (mScaleDefault > mScaleEnd) {
             throw new IllegalArgumentException("def不能大于end的值");
         }
+    }
+
+    /**
+     * 获取刻度绘制方向
+     * @return
+     */
+    public int getDirection() {
+        return mDirection;
+    }
+    /**
+     * 设置刻度绘制方向
+     * @param direction
+     */
+    public void setDirection(int direction) {
+        this.mDirection = direction;
+    }
+
+    /**
+     * 获取刻度间隔宽度
+     * @return
+     */
+    public int getScaleWidth() {
+        return mScaleWidth;
+    }
+    /**
+     * 设置刻度间隔宽度
+     * @param scaleWidth
+     */
+    public void setScaleWidth(int scaleWidth) {
+        this.mScaleWidth = scaleWidth;
     }
 
     /**
@@ -142,7 +180,7 @@ public class VerticalScaleView extends ScrollView {
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
         int y = getScrollY();
-        int selectItem = (int) (y / _SCALE_WIDTH);
+        int selectItem = (int) (y / mScaleWidth);
 
         switch (ev.getAction()) {
             case MotionEvent.ACTION_MOVE:
@@ -181,13 +219,13 @@ public class VerticalScaleView extends ScrollView {
         int itemCount = (mScaleEnd - mScaleStart) / _SCALE_SPACE;
         for (int i = 0; i <= itemCount; i++) {
             ScaleItem item = new ScaleItem();
-            item.point = pointStart + (i * _SCALE_WIDTH);
+            item.point = pointStart + (i * mScaleWidth);
             item.value = mScaleStart + (i * _SCALE_SPACE);
             mScaleItems.add(item);
         }
 
         // 计算刻度尺总高度
-        int drawHeight = ((mScaleEnd - mScaleStart) / _SCALE_SPACE * _SCALE_WIDTH) + height;
+        int drawHeight = ((mScaleEnd - mScaleStart) / _SCALE_SPACE * mScaleWidth) + height;
         mDrawView.getLayoutParams().height = drawHeight;
         mDrawView.setMinimumHeight(drawHeight);
 
@@ -214,40 +252,64 @@ public class VerticalScaleView extends ScrollView {
 
             // 将所有刻度绘制出来
             for (ScaleItem item : mScaleItems) {
-                if (item.value % 10 == 0) {
-                    // 大刻度
-                    paint.setTypeface(Typeface.DEFAULT_BOLD);
-                    canvas.drawLine(0, item.point, getWidth() * 0.5F, item.point, paint);
-                    canvas.drawText(getDecimal(item.value * 0.01, 2), (getWidth() * 0.5F), item.point+_SCALE_WIDTH, paint);
-                } else if (item.value % 5 == 0) {
-                    // 中间刻度
-                    paint.setTypeface(Typeface.DEFAULT_BOLD);
-                    canvas.drawLine(0, item.point, getWidth() / 3, item.point, paint);
-                } else {
-                    // 普通小刻度
-                    paint.setTypeface(Typeface.DEFAULT);
-                    canvas.drawLine(0, item.point, getWidth()/4, item.point, paint);
+                // 是否已绘制
+                boolean isDraw = false;
+                if (mOnScaleDrawListener != null) {
+                    // 自定义绘制方法
+                    isDraw = mOnScaleDrawListener.onDrawScale(canvas, item.value, item.point, mDirection);
+                }
+
+                if (!isDraw) {
+                    // 默认实现的绘制方法
+                    if (mDirection == _DIRECTION_LEFT) {
+                        if (item.value % 10 == 0) {
+                            // 大刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(0, item.point, getWidth() * 0.5F, item.point, paint);
+                            canvas.drawText(getValueShow(item.value), (getWidth() * 0.5F), item.point + mScaleWidth, paint);
+                        } else if (item.value % 5 == 0) {
+                            // 中间刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(0, item.point, getWidth() / 3, item.point, paint);
+                        } else {
+                            // 普通小刻度
+                            paint.setTypeface(Typeface.DEFAULT);
+                            canvas.drawLine(0, item.point, getWidth() / 4, item.point, paint);
+                        }
+                    } else {
+                        if (item.value % 10 == 0) {
+                            // 大刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(getWidth() * 0.5F, item.point, getWidth(), item.point, paint);
+                            canvas.drawText(getValueShow(item.value), (getWidth() * 0.15F), item.point + mScaleWidth, paint);
+                        } else if (item.value % 5 == 0) {
+                            // 中间刻度
+                            paint.setTypeface(Typeface.DEFAULT_BOLD);
+                            canvas.drawLine(getWidth() * 2 / 3, item.point, getWidth(), item.point, paint);
+                        } else {
+                            // 普通小刻度
+                            paint.setTypeface(Typeface.DEFAULT);
+                            canvas.drawLine(getWidth() * 3 / 4, item.point, getWidth(), item.point, paint);
+                        }
+                    }
                 }
             }
         }
 
         /**
-         * 指定小数点后的个数
-         * @param decimal 要处理显示的数值
-         * @param length 小数点后的个数
-         * @return 处理后的结果
+         * 获取要显示的刻度值
+         * @param value 刻度值
+         * @return 要显示的内容
          */
-        private String getDecimal(double decimal, int length) {
-            String strLen = ".";
-            if (length <= 0) {
-                strLen = "";
-            } else {
-                for (int i=0; i<length; i++) {
-                    strLen += "0";
-                }
+        private String getValueShow(int value) {
+            String text = null;
+            if (mOnScaleChangeListener != null) {
+                text = mOnScaleChangeListener.getValueText(value);
             }
-            java.text.DecimalFormat df = new java.text.DecimalFormat("0"+strLen);
-            return df.format(decimal);
+            if (TextUtils.isEmpty(text)) {
+                text = String.valueOf(value);
+            }
+            return text;
         }
     }
 
